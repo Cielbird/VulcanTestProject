@@ -1,0 +1,27 @@
+# Compiled Object files, Static and Dynamic libs (Shared Objects)
+*.o
+*.a
+*.so
+*.dll
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# CMake files
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Makefile
+
+# VSCode specific files
+.vscode/
+
+# CMake generated files
+cmake_install.cmake
+install_manifest.txt
+
+# Build directory
+build/
