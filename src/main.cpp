@@ -4,12 +4,23 @@
 #include <iostream>
 #include <stdexcept>
 #include <cstdlib>
+#include <optional>
 
 const uint32_t WIDTH = 600;
 const uint32_t HEIGHT = 800;
 
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
+};
+
+struct QueueFamilyIndices {
+    std::optional<uint32_t> graphicsFamily;
+
+    /// @brief Checks if all the required queue families are set
+    /// @return True if all required queue family indices are set
+    bool isComplete() {
+        return graphicsFamily.has_value();
+    }
 };
 
 #ifdef NDEBUG
@@ -30,6 +41,7 @@ public:
 private:
     GLFWwindow* window;
     VkInstance instance;
+    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 
     void initWindow() {
         glfwInit();
@@ -43,6 +55,7 @@ private:
     /// @brief pisscock
     void initVulkan() {
         createInstance();
+        pickPhysicalDevice();
     }
 
     /// @brief Runs as long as the window is open. Main loop.
@@ -157,6 +170,74 @@ private:
             }
         }
         return !areAnyMissing;
+    }
+
+    /// @brief Selects a device (GPU) for use. Checks for device suitability.
+    void pickPhysicalDevice() {
+        uint32_t deviceCount;
+        vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+        if (deviceCount == 0){
+            throw std::runtime_error("Unable to find any GPU devices with Vulcan support!");
+        }
+        std::vector<VkPhysicalDevice> devices(deviceCount);
+        vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+        // score and pick best GPU
+        VkPhysicalDevice bestPhysicalDevice;
+        uint32_t bestScore = 0; 
+        for (const VkPhysicalDevice& device : devices) {
+            uint32_t score = scorePhysicalDeviceSuitability(device);
+            if (score == 0) continue; // score of 0 means unsuitable GPU
+            if (score > bestScore){
+                bestPhysicalDevice = device;
+                bestScore = score;
+            }
+        }
+
+        if (bestPhysicalDevice == VK_NULL_HANDLE)
+            throw std::runtime_error("Failed to find a suitable GPU!");
+        
+    }
+
+    /// @brief Scores the suitability of the GPU for the application to chose the best for the job.
+    /// @param device The GPU we are interested in checking
+    /// @return An int for the score. 0 means unusable, highest score is best.
+    uint32_t scorePhysicalDeviceSuitability (const VkPhysicalDevice& device) {
+        // get properties and features
+        VkPhysicalDeviceProperties properties;
+        VkPhysicalDeviceFeatures features;
+        vkGetPhysicalDeviceProperties(device, &properties);
+        vkGetPhysicalDeviceFeatures(device, &features);
+        // get phyiscal device queue families (indices of the family of each type we need)
+        QueueFamilyIndices queueFamilyIndices;
+        getQueueFamilyIndices(device, queueFamilyIndices);
+
+        // baseline requirements
+        if (!queueFamilyIndices.isComplete())
+            return 0;
+
+        uint32_t score = 0;
+        // discrete gpus are much better
+        if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+            score += 100;
+        // Maximum possible size of textures affects graphics quality
+        score += properties.limits.maxImageDimension2D;
+        return score;
+    }
+
+    void getQueueFamilyIndices(const VkPhysicalDevice& device, QueueFamilyIndices& queueFamilies){
+        uint32_t famCount;
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &famCount, nullptr);
+        std::vector<VkQueueFamilyProperties> fams(famCount);
+        vkGetPhysicalDeviceQueueFamilyProperties(device, &famCount, fams.data());
+
+        for(int i=0; i<famCount; ++i)
+        {
+            if ((fams[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0)
+                queueFamilies.graphicsFamily = i;
+                continue;
+            if (queueFamilies.isComplete())
+                break;
+        }
     }
 };
 
