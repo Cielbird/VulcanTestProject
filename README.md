@@ -2,5 +2,8 @@
 A personal project to play around with vulcan
 
 ## Building
-- `cmake -B build`
-- `cd build` and `make`
+- navigate to the desired build folder, debug or release
+- `cmake ../../`
+  - if in debug, add `-DCMAKE_BUILD_TYPE=Debug`
+- `cmake --build .`
+- the executable will be in `bin`
